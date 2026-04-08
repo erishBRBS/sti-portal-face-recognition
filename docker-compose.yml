@@ -1,0 +1,15 @@
+services:
+  face-recognition-api:
+    build:
+      context: .
+    container_name: face-recognition-api
+    ports:
+      - "9000:9000"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - insightface-models:/root/.insightface
+
+volumes:
+  insightface-models:
