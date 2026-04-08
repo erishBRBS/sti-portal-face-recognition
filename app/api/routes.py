@@ -1,6 +1,6 @@
 from typing import Any
 
-from fastapi import APIRouter, File, Form, UploadFile
+from fastapi import APIRouter, File, Form, UploadFile, HTTPException
 
 from app.core.config import settings
 from app.schemas.recognition import EnrollResponse, HealthResponse, RecognizeResponse
@@ -89,3 +89,16 @@ async def recognize_face(
         laravel_response=laravel_response,
         metadata=result.metadata,
     )
+
+@router.delete("/delete-face/{student_id}")
+async def delete_face(student_id: str) -> dict[str, str | bool]:
+    deleted = insightface_service.storage.delete_student_embedding(student_id)
+
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Student face record not found.")
+
+    return {
+        "success": True,
+        "message": "Student face record deleted successfully.",
+        "student_id": student_id,
+    }

@@ -6,6 +6,21 @@ from app.core.config import settings
 
 
 class StorageService:
+    def delete_student_embedding(self, student_id: str) -> bool:
+      items = self.load_embeddings()
+
+      filtered_items = [
+          item for item in items
+          if str(item.get("student_id")) != str(student_id)
+      ]
+
+      deleted = len(filtered_items) != len(items)
+
+      if deleted:
+          self.save_embeddings(filtered_items)
+
+      return deleted
+
     def __init__(self) -> None:
         self.file_path = settings.embeddings_file
         os.makedirs(os.path.dirname(self.file_path), exist_ok=True)
