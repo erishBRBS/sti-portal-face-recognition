@@ -20,29 +20,24 @@ async def health_check() -> HealthResponse:
 
 @router.post("/enroll-face", response_model=EnrollResponse)
 async def enroll_face(
-    student_id: str = Form(...),
-    full_name: str | None = Form(None),
-    course: str | None = Form(None),
-    section: str | None = Form(None),
-    image: UploadFile = File(...),
+    student_no: str = Form(...),
+    images: list[UploadFile] = File(...),
 ) -> EnrollResponse:
-    metadata: dict[str, Any] = {
-        "full_name": full_name,
-        "course": course,
-        "section": section,
-        "filename": image.filename,
-    }
+    if len(images) == 0:
+        raise HTTPException(status_code=400, detail="No images uploaded.")
 
-    result = await insightface_service.enroll_face(
-        student_id=student_id,
-        file=image,
-        metadata=metadata,
+    if len(images) > 5:
+        raise HTTPException(status_code=400, detail="Maximum of 5 images only.")
+
+    result = await insightface_service.enroll_faces(
+        student_no=student_no,
+        files=images,
     )
 
     return EnrollResponse(
         success=True,
-        message="Face enrolled successfully.",
-        student_id=result["student_id"],
+        message="Face(s) enrolled successfully.",
+        student_no=result["student_no"],
         metadata=result["metadata"],
     )
 
@@ -50,16 +45,14 @@ async def enroll_face(
 @router.post("/recognize-face", response_model=RecognizeResponse)
 async def recognize_face(
     image: UploadFile = File(...),
-    camera_id: str | None = Form(None),
-    gate_id: str | None = Form(None),
 ) -> RecognizeResponse:
     result = await insightface_service.recognize_face(file=image)
 
-    if not result.matched or not result.student_id or result.similarity is None:
+    if not result.matched or not result.student_no or result.similarity is None:
         return RecognizeResponse(
             success=True,
             matched=False,
-            student_id=None,
+            student_no=None,
             similarity=result.similarity,
             message="No matching student found.",
             laravel_response=None,
@@ -69,12 +62,10 @@ async def recognize_face(
     laravel_response = None
     if settings.notify_laravel:
         laravel_response = await laravel_service.notify_attendance(
-            student_id=result.student_id,
+            student_no=result.student_no,
             similarity=result.similarity,
-            camera_id=camera_id,
-            gate_id=gate_id,
             raw_result={
-                "student_id": result.student_id,
+                "student_no": result.student_no,
                 "similarity": result.similarity,
                 "metadata": result.metadata or {},
             },
@@ -83,16 +74,17 @@ async def recognize_face(
     return RecognizeResponse(
         success=True,
         matched=True,
-        student_id=result.student_id,
+        student_no=result.student_no,
         similarity=result.similarity,
         message="Student matched successfully.",
         laravel_response=laravel_response,
         metadata=result.metadata,
     )
 
-@router.delete("/delete-face/{student_id}")
-async def delete_face(student_id: str) -> dict[str, str | bool]:
-    deleted = insightface_service.storage.delete_student_embedding(student_id)
+
+@router.delete("/delete-face/{student_no}")
+async def delete_face(student_no: str) -> dict[str, str | bool]:
+    deleted = insightface_service.storage.delete_student_embedding(student_no)
 
     if not deleted:
         raise HTTPException(status_code=404, detail="Student face record not found.")
@@ -100,5 +92,5 @@ async def delete_face(student_id: str) -> dict[str, str | bool]:
     return {
         "success": True,
         "message": "Student face record deleted successfully.",
-        "student_id": student_id,
+        "student_no": student_no,
     }

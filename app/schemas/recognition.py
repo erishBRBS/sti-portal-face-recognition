@@ -10,14 +10,14 @@ class HealthResponse(BaseModel):
 class EnrollResponse(BaseModel):
     success: bool
     message: str
-    student_id: str
+    student_no: str
     metadata: dict[str, Any] | None = None
 
 
 class RecognizeResponse(BaseModel):
     success: bool
     matched: bool
-    student_id: str | None = None
+    student_no: str | None = None
     similarity: float | None = None
     message: str
     laravel_response: dict[str, Any] | None = None

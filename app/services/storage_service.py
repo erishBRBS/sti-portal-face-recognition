@@ -6,12 +6,12 @@ from app.core.config import settings
 
 
 class StorageService:
-    def delete_student_embedding(self, student_id: str) -> bool:
+    def delete_student_embedding(self, student_no: str) -> bool:
       items = self.load_embeddings()
 
       filtered_items = [
           item for item in items
-          if str(item.get("student_id")) != str(student_id)
+          if str(item.get("student_no")) != str(student_no)
       ]
 
       deleted = len(filtered_items) != len(items)
@@ -42,23 +42,21 @@ class StorageService:
         with open(self.file_path, "w", encoding="utf-8") as f:
             json.dump(items, f, ensure_ascii=False, indent=2)
 
-    def upsert_student_embedding(
+    def upsert_student_embeddings(
         self,
-        student_id: str,
-        embedding: list[float],
-        metadata: dict[str, Any] | None = None,
+        student_no: str,
+        embeddings: list[dict[str, Any]],
     ) -> None:
         items = self.load_embeddings()
 
         existing_index = next(
-            (i for i, item in enumerate(items) if item.get("student_id") == student_id),
+            (i for i, item in enumerate(items) if item.get("student_no") == student_no),
             None,
         )
 
         record = {
-            "student_id": student_id,
-            "embedding": embedding,
-            "metadata": metadata or {},
+            "student_no": student_no,
+            "embeddings": embeddings,
         }
 
         if existing_index is None:

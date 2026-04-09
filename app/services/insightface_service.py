@@ -15,7 +15,7 @@ from app.services.storage_service import StorageService
 @dataclass
 class FaceMatchResult:
     matched: bool
-    student_id: str | None
+    student_no: str | None
     similarity: float | None
     metadata: dict[str, Any] | None
 
@@ -59,7 +59,8 @@ class InsightFaceService:
 
         largest_face = max(
             faces,
-            key=lambda face: (face.bbox[2] - face.bbox[0]) * (face.bbox[3] - face.bbox[1]),
+            key=lambda face: (face.bbox[2] - face.bbox[0])
+            * (face.bbox[3] - face.bbox[1]),
         )
         return largest_face
 
@@ -74,26 +75,39 @@ class InsightFaceService:
         emb2 = self.normalize_embedding(emb2)
         return float(np.dot(emb1, emb2))
 
-    async def enroll_face(
+    async def enroll_faces(
         self,
-        student_id: str,
-        file: UploadFile,
-        metadata: dict[str, Any] | None = None,
+        student_no: str,
+        files: list[UploadFile],
     ) -> dict[str, Any]:
-        image = await self.read_image(file)
-        face = self.get_largest_face(image)
+        embeddings_to_store: list[dict[str, Any]] = []
 
-        embedding = face.embedding.astype(np.float32).tolist()
+        for file in files:
+            image = await self.read_image(file)
+            face = self.get_largest_face(image)
 
-        self.storage.upsert_student_embedding(
-            student_id=student_id,
-            embedding=embedding,
-            metadata=metadata,
+            embedding = face.embedding.astype(np.float32).tolist()
+
+            embeddings_to_store.append(
+                {
+                    "embedding": embedding,
+                    "metadata": {
+                        "filename": file.filename,
+                    },
+                }
+            )
+
+        self.storage.upsert_student_embeddings(
+            student_no=student_no,
+            embeddings=embeddings_to_store,
         )
 
         return {
-            "student_id": student_id,
-            "metadata": metadata or {},
+            "student_no": student_no,
+            "metadata": {
+                "total_images": len(embeddings_to_store),
+                "files": [item["metadata"] for item in embeddings_to_store],
+            },
         }
 
     async def recognize_face(self, file: UploadFile) -> FaceMatchResult:
@@ -105,29 +119,33 @@ class InsightFaceService:
         if not candidates:
             return FaceMatchResult(
                 matched=False,
-                student_id=None,
+                student_no=None,
                 similarity=None,
                 metadata=None,
             )
 
-        best_student_id: str | None = None
+        best_student_no: str | None = None
         best_similarity: float = -1.0
         best_metadata: dict[str, Any] | None = None
 
         for candidate in candidates:
-            stored_embedding = np.array(candidate["embedding"], dtype=np.float32)
-            similarity = self.cosine_similarity(probe_embedding, stored_embedding)
+            student_no = candidate.get("student_no")
+            stored_embeddings = candidate.get("embeddings", [])
 
-            if similarity > best_similarity:
-                best_similarity = similarity
-                best_student_id = candidate.get("student_id")
-                best_metadata = candidate.get("metadata", {})
+            for stored in stored_embeddings:
+                stored_embedding = np.array(stored["embedding"], dtype=np.float32)
+                similarity = self.cosine_similarity(probe_embedding, stored_embedding)
+
+                if similarity > best_similarity:
+                    best_similarity = similarity
+                    best_student_no = student_no
+                    best_metadata = stored.get("metadata", {})
 
         matched = best_similarity >= settings.face_similarity_threshold
 
         return FaceMatchResult(
             matched=matched,
-            student_id=best_student_id if matched else None,
+            student_no=best_student_no if matched else None,
             similarity=best_similarity if best_similarity >= 0 else None,
             metadata=best_metadata if matched else None,
         )

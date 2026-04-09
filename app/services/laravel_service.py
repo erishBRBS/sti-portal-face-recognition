@@ -22,19 +22,15 @@ class LaravelService:
 
     async def notify_attendance(
         self,
-        student_id: str,
+        student_no: str,
         similarity: float,
-        camera_id: str | None = None,
-        gate_id: str | None = None,
         raw_result: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         url = f"{self.base_url}/attendance/gate-face-scan"
 
         payload = {
-            "student_id": student_id,
+            "student_no": student_no,
             "similarity": similarity,
-            "camera_id": camera_id,
-            "gate_id": gate_id,
             "provider": "insightface",
             "raw_result": raw_result or {},
         }
