@@ -1,0 +1,7 @@
+tunnel: dcbd172f-86e5-4222-a682-5a61318b8ca0
+credentials-file: /etc/cloudflared/dcbd172f-86e5-4222-a682-5a61318b8ca0.json
+
+ingress:
+  - hostname: face-recog.edu-nexus.org
+    service: http://face-recognition-api:9000
+  - service: http_status:404

@@ -4,10 +4,10 @@ services:
       context: .
     container_name: face-recognition-api
     restart: unless-stopped
-    ports:
-      - "9000:9000"
     env_file:
       - .env
+    ports:
+      - "9000:9000"
     volumes:
       - ./data:/app/data
       - insightface-models:/root/.insightface
@@ -17,6 +17,17 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: sti-portal-python-cloudflared-tunnel
+    restart: unless-stopped
+    depends_on:
+      face-recognition-api:
+        condition: service_healthy
+    command: tunnel --no-autoupdate run
+    volumes:
+      - ./cloudflared:/etc/cloudflared:ro
 
 volumes:
   insightface-models:
