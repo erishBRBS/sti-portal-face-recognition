@@ -59,16 +59,19 @@ async def recognize_face(
             metadata=None,
         )
 
+    metadata = result.metadata or {}
+
+    full_name = metadata.get("full_name") or metadata.get("name") or ""
+    course = metadata.get("course") or ""
+    section = metadata.get("section") or ""
+
     laravel_response = None
     if settings.notify_laravel:
         laravel_response = await laravel_service.notify_attendance(
             student_no=result.student_no,
-            similarity=result.similarity,
-            raw_result={
-                "student_no": result.student_no,
-                "similarity": result.similarity,
-                "metadata": result.metadata or {},
-            },
+            full_name=full_name,
+            course=course,
+            section=section,
         )
 
     return RecognizeResponse(
@@ -78,7 +81,7 @@ async def recognize_face(
         similarity=result.similarity,
         message="Student matched successfully.",
         laravel_response=laravel_response,
-        metadata=result.metadata,
+        metadata=metadata,
     )
 
 

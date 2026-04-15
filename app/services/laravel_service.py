@@ -23,24 +23,26 @@ class LaravelService:
     async def notify_attendance(
         self,
         student_no: str,
-        similarity: float,
-        raw_result: dict[str, Any] | None = None,
+        full_name: str,
+        course: str,
+        section: str,
     ) -> dict[str, Any]:
-        url = f"{self.base_url}/attendance/gate-face-scan"
+        url = f"{self.base_url}/process-scan/gate-monitoring"
 
         payload = {
             "student_no": student_no,
-            "similarity": similarity,
-            "provider": "insightface",
-            "raw_result": raw_result or {},
+            "full_name": full_name,
+            "course": course,
+            "section": section,
         }
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.post(
-                url,
-                json=payload,
-                headers=self.build_headers(),
-            )
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.post(
+                    url,
+                    json=payload,
+                    headers=self.build_headers(),
+                )
 
             try:
                 data = response.json()
@@ -51,8 +53,31 @@ class LaravelService:
                 }
 
             return {
+                "success": response.is_success,
                 "status_code": response.status_code,
                 "data": data,
+                "request_payload": payload,
+            }
+
+        except httpx.TimeoutException:
+            return {
+                "success": False,
+                "status_code": 504,
+                "data": {
+                    "message": "Request to Laravel timed out."
+                },
+                "request_payload": payload,
+            }
+
+        except httpx.RequestError as e:
+            return {
+                "success": False,
+                "status_code": 500,
+                "data": {
+                    "message": "Failed to connect to Laravel API.",
+                    "error": str(e),
+                },
+                "request_payload": payload,
             }
 
 
